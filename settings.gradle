@@ -1,0 +1,3 @@
+include ':will-sdk'
+include ':app'
+rootProject.name = "FingerPrintTest"
