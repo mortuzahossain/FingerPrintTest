@@ -19,6 +19,7 @@ import java.nio.ByteOrder;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import butterknife.OnClick;
 
 public class MainActivity extends AppCompatActivity {
     public static final int QUALITY_LIMIT = 60;
@@ -230,5 +231,98 @@ public class MainActivity extends AppCompatActivity {
             init();
         }
     };
+
+    @OnClick(R.id.btn_fp_act_open_device)
+    public void openDevice(){
+//        sampleDialogFragment.show(getFragmentManager(), "DIALOG_TYPE_PROGRESS");
+        bsp.OpenDevice();
+    }
+
+    @OnClick(R.id.btn_fp_act_capture)
+    public void captureFingerPrint(){
+        new Thread(new Runnable() {
+
+            public void run() {
+                OnCaptureSingleFinger();
+            }
+        }).start();
+    }
+
+    private void captureResultSuccess(String fingerData){
+
+        //TastyToast.makeText(FingerPrintActivity.this,"Success!",TastyToast.LENGTH_LONG,TastyToast.SUCCESS).show();
+
+        //tvFingerPrintData.setText(fingerData);
+
+        tvFpPrintStatus.setText("Capture successful!");
+//        tvFpPrintStatus.setTextColor(getResources().getColorStateList(R.color.netConnectedColor));
+
+        btnFpVerify.setClickable(true);
+        btnFpVerify.setBackgroundTintList(getResources().getColorStateList(R.color.colorPrimary));
+    }
+
+    private void captureResultFailed(String msg){
+        //tvFingerPrintData.setText(msg);
+
+//        TastyToast.makeText(FingerPrintActivity.this,"Failed to capture finger print, try again!",TastyToast.LENGTH_LONG,TastyToast.ERROR).show();
+
+        Toast.makeText(this, "Failed to capture finger print, try again!", Toast.LENGTH_SHORT).show();
+
+        tvFpPrintStatus.setText("Capture unsuccessful!");
+        tvFpPrintStatus.setTextColor(Color.RED);
+
+        tvFpQuality.setText("0");
+
+        btnFpVerify.setClickable(false);
+        btnFpVerify.setBackgroundTintList(getResources().getColorStateList(R.color.colorAccent));
+    }
+
+    public synchronized void OnCaptureSingleFinger(){
+
+        NBioBSPJNI.FIR_HANDLE hSavedFIR;
+
+        hSavedFIR = bsp.new FIR_HANDLE();
+
+        bsp.Capture(hSavedFIR);
+
+//        if(sampleDialogFragment!=null && "DIALOG_TYPE_PROGRESS".equals(sampleDialogFragment.getTag()))
+//            sampleDialogFragment.dismiss();
+
+        if (!bsp.IsErrorOccured())  {
+
+            NBioBSPJNI.FIR_TEXTENCODE textSavedFIR;
+            textSavedFIR = bsp.new FIR_TEXTENCODE();
+            bsp.GetTextFIRFromHandle(hSavedFIR, textSavedFIR);
+            //bsp.GetTextFIRFromHandle(hSavedFIR, textSavedFIR,NBioBSPJNI.FIR_FORMAT.STANDARD);
+
+            fingerData = textSavedFIR.TextFIR;
+        }
+        else {
+            msg = "NBioBSP Capture Error: " + bsp.GetErrorCode();
+        }
+
+        runOnUiThread(new Runnable() {
+
+            public void run() {
+                if (fingerData != null)  {
+                    captureResultSuccess(fingerData);
+                }else{
+                    captureResultFailed("Capture error! Try again.");
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onDestroy(){
+
+        if (bsp != null) {
+            bsp.dispose();
+            bsp = null;
+        }
+        super.onDestroy();
+
+    }
+
 
 }
