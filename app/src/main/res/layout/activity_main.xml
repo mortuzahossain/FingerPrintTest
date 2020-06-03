@@ -1,14 +1,176 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
 
-    <SurfaceView
-        android:id="@+id/surfaceview"
+
+    <TextView
+        android:id="@+id/tv_top_title"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:shadowDx="1"
+        android:shadowDy="1"
+        android:shadowRadius="2"
+        android:text="@string/please_input_finger_print_of"
+        android:textAlignment="center"
+        android:textColor="@color/colorPrimary"
+        android:textStyle="normal"
+        android:visibility="gone" />
 
-</LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/fingerPrintLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/tv_top_title"
+        android:layout_marginStart="@dimen/finger_layout_margin_left_right"
+        android:layout_marginTop="@dimen/finger_layout_margin_left_right"
+        android:layout_marginEnd="@dimen/finger_layout_margin_left_right"
+        android:layout_marginBottom="@dimen/finger_layout_margin_left_right"
+        android:baselineAligned="false"
+        android:orientation="horizontal"
+        android:weightSum="2">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:text="@string/device_status"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_fp_act_device_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:textStyle="normal"
+                tools:text="Connected" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:text="@string/finger_print"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_fp_act_finger_print_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:textStyle="normal"
+                tools:text="Not captured yet" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:text="@string/quality"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_fp_act_finger_print_quality"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginBottom="@dimen/finger_print_box_margin_bottom"
+                android:textStyle="normal"
+                tools:text="80%" />
+
+            <Button
+                android:id="@+id/btn_fp_act_open_device"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:backgroundTint="@color/colorPrimary"
+                android:minHeight="1dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/open_device"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/reg_password" />
+
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/imv_finger_print"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:adjustViewBounds="true"
+                android:padding="10dp"
+                android:scaleType="fitXY"
+                android:src="@drawable/logo_finger_print" />
+
+            <Button
+                android:id="@+id/btn_fp_act_capture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:backgroundTint="@color/colorPrimary"
+                android:minHeight="1dp"
+                android:paddingStart="5dp"
+                android:paddingEnd="5dp"
+                android:text="@string/capture"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/reg_password" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progressbar_finger_print"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/fingerPrintLayout"
+        android:layout_marginBottom="@dimen/finger_layout_margin_left_right"
+        android:indeterminate="true"
+        android:indeterminateTint="#1a09d6"
+        android:max="100"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btn_fp_act_finger_print_verify"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/progressbar_finger_print"
+        android:layout_marginStart="@dimen/finger_layout_margin_left_right"
+        android:layout_marginEnd="@dimen/finger_layout_margin_left_right"
+        android:backgroundTint="@color/colorPrimary"
+        android:text="@string/verify" />
+
+    <Button
+        android:id="@+id/btn_fp_act_finger_print_submit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/btn_fp_act_finger_print_verify"
+        android:layout_marginStart="@dimen/finger_layout_margin_left_right"
+        android:layout_marginEnd="@dimen/finger_layout_margin_left_right"
+        android:backgroundTint="@color/colorPrimary"
+        android:text="@string/submit" />
+
+</RelativeLayout>

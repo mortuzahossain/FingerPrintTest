@@ -1,186 +1,234 @@
 package io.github.mortuzahossain.fingerprinttest;
 
-import androidx.appcompat.app.AppCompatActivity;
-
-import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import android.view.View;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import com.wacom.ink.path.PathBuilder;
-import com.wacom.ink.path.PathUtils;
-import com.wacom.ink.path.SpeedPathBuilder;
-import com.wacom.ink.penid.PenRecognizer;
-import com.wacom.ink.rasterization.BlendMode;
-import com.wacom.ink.rasterization.InkCanvas;
-import com.wacom.ink.rasterization.Layer;
-import com.wacom.ink.rasterization.SolidColorBrush;
-import com.wacom.ink.rasterization.StrokePaint;
-import com.wacom.ink.rasterization.StrokeRenderer;
-import com.wacom.ink.rendering.EGLRenderingContext;
-import com.wacom.ink.smooth.MultiChannelSmoothener;
+import androidx.appcompat.app.AppCompatActivity;
 
-import java.nio.FloatBuffer;
-import java.util.HashMap;
+import com.nitgen.SDK.AndroidBSP.NBioBSPJNI;
+import com.nitgen.SDK.AndroidBSP.StaticVals;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+
+import butterknife.BindView;
+import butterknife.ButterKnife;
 
 public class MainActivity extends AppCompatActivity {
+    public static final int QUALITY_LIMIT = 60;
+    public static final int APPROVED_QUALITY_LIMIT = 70;
+    private NBioBSPJNI bsp;
+    private NBioBSPJNI.Export exportEngine;
+    private NBioBSPJNI.IndexSearch indexSearch;
 
-    private InkCanvas inkCanvas;
-    private Layer viewLayer;
-    private SpeedPathBuilder pathBuilder;
-    private StrokePaint paint;
-    private SolidColorBrush brush;
-    private MultiChannelSmoothener smoothener;
-    private int pathStride;
-    private StrokeRenderer strokeRenderer;
-    private Layer strokesLayer;
-    private Layer currentFrameLayer;
-    private HashMap<Long, Integer> penIdsMap;
+    private int nFIQ = 0;
+    private String msg = "";
+    private boolean bCapturedFirst, bAutoOn = false;
+    String fingerData = "";
+    //DialogFragment sampleDialogFragment;
 
-    @SuppressLint("UseSparseArrays")
+    private boolean customerFingerVerificationRequired = false;
+
+
+    @BindView(R.id.tv_fp_act_device_status)
+    TextView tvFpDeviceStatus;
+    @BindView(R.id.tv_fp_act_finger_print_status)
+    TextView tvFpPrintStatus;
+    @BindView(R.id.tv_fp_act_finger_print_quality)
+    TextView tvFpQuality;
+    @BindView(R.id.tv_top_title)
+    TextView tvTitleTop;
+    @BindView(R.id.imv_finger_print)
+    ImageView imvFpPrint;
+    @BindView(R.id.btn_fp_act_open_device)
+    Button btnFpOpenDevice;
+    @BindView(R.id.btn_fp_act_capture)
+    Button btnFpCapture;
+    @BindView(R.id.btn_fp_act_finger_print_verify)
+    Button btnFpVerify;
+    @BindView(R.id.btn_fp_act_finger_print_submit)
+    Button btnFpSubmit;
+    @BindView(R.id.progressbar_finger_print)
+    ProgressBar progressBar;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ButterKnife.bind(this);
 
-        SurfaceView surfaceView = findViewById(R.id.surfaceview);
+        init();
+        initData();
+        bsp.OpenDevice();
 
-        penIdsMap = new HashMap<Long, Integer>();
-
-        pathBuilder = new SpeedPathBuilder();
-        pathBuilder.setNormalizationConfig(100.0f, 4000.0f);
-        pathBuilder.setMovementThreshold(2.0f);
-        pathBuilder.setPropertyConfig(PathBuilder.PropertyName.Width, 5f, 10f, Float.NaN, Float.NaN, PathBuilder.PropertyFunction.Power, 1.0f, false);
-        pathStride = pathBuilder.getStride();
-
-        surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
-
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                if (inkCanvas != null && !inkCanvas.isDisposed()) {
-                    releaseResources();
-                }
-
-                inkCanvas = InkCanvas.create(holder, new EGLRenderingContext.EGLConfiguration());
-
-                viewLayer = inkCanvas.createViewLayer(width, height);
-                strokesLayer = inkCanvas.createLayer(width, height);
-                currentFrameLayer = inkCanvas.createLayer(width, height);
-
-                inkCanvas.clearLayer(currentFrameLayer, Color.WHITE);
-
-                brush = new SolidColorBrush();
-
-                paint = new StrokePaint();
-                paint.setStrokeBrush(brush);    // Solid color brush.
-                paint.setColor(Color.BLUE);        // Blue color.
-                paint.setWidth(Float.NaN);        // Expected variable width.
-
-                smoothener = new MultiChannelSmoothener(pathStride);
-                smoothener.enableChannel(2);
-
-                strokeRenderer = new StrokeRenderer(inkCanvas, paint, pathStride, width, height);
-
-                renderView();
-            }
-
-            @Override
-            public void surfaceCreated(SurfaceHolder holder) {
-
-            }
-
-            @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {
-                releaseResources();
-            }
-        });
-
-        surfaceView.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                buildPath(event);
-                drawStroke(event);
-                renderView();
-                return true;
-            }
-        });
+        //sampleDialogFragment.show(getSupportFragmentManager(), "DIALOG_TYPE_PROGRESS");
 
     }
 
-    private void renderView() {
-        inkCanvas.setTarget(viewLayer);
-        // Copy the current frame layer in the view layer to present it on the screen.
-        inkCanvas.drawLayer(currentFrameLayer, BlendMode.BLENDMODE_OVERWRITE);
-        inkCanvas.invalidate();
+    private void init() {
+
+        fingerData = "";
+        tvFpDeviceStatus.setText("Not connected");
+        tvFpDeviceStatus.setTextColor(Color.RED);
+
+        imvFpPrint.setImageDrawable(getResources().getDrawable(R.drawable.logo_finger_print));
+
+        tvFpPrintStatus.setText("Not captured yet!");
+        tvFpPrintStatus.setTextColor(Color.RED);
+
+        tvFpQuality.setText("0");
+
+        btnFpCapture.setClickable(false);
+        btnFpCapture.setBackgroundTintList(this.getResources().getColorStateList(R.color.colorAccent));
+
+        btnFpVerify.setClickable(false);
+        btnFpVerify.setBackgroundTintList(this.getResources().getColorStateList(R.color.colorAccent));
+
+        btnFpSubmit.setClickable(false);
+        btnFpSubmit.setBackgroundTintList(this.getResources().getColorStateList(R.color.colorAccent));
+
     }
 
-    private void buildPath(MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_DOWN
-                && event.getAction() != MotionEvent.ACTION_MOVE
-                && event.getAction() != MotionEvent.ACTION_UP) {
-            return;
-        }
+    public void initData() {
 
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            // Reset the smoothener instance when starting to generate a new path.
-            smoothener.reset();
-        }
-
-        PathUtils.Phase phase = PathUtils.getPhaseFromMotionEvent(event);
-        // Add the current input point to the path builder
-        FloatBuffer part = pathBuilder.addPoint(phase, event.getX(), event.getY(), event.getEventTime());
-        MultiChannelSmoothener.SmoothingResult smoothingResult;
-        int partSize = pathBuilder.getPathPartSize();
-
-        if (partSize > 0) {
-            // Smooth the returned control points (aka path part).
-            smoothingResult = smoothener.smooth(part, partSize, (phase == PathUtils.Phase.END));
-            // Add the smoothed control points to the path builder.
-            pathBuilder.addPathPart(smoothingResult.getSmoothedPoints(), smoothingResult.getSize());
-        }
-
-        // Create a preliminary path.
-        FloatBuffer preliminaryPath = pathBuilder.createPreliminaryPath();
-        // Smoothen the preliminary path's control points (return inform of a path part).
-        smoothingResult = smoothener.smooth(preliminaryPath, pathBuilder.getPreliminaryPathSize(), true);
-        // Add the smoothed preliminary path to the path builder.
-        pathBuilder.finishPreliminaryPath(smoothingResult.getSmoothedPoints(), smoothingResult.getSize());
-    }
-
-    private void drawStroke(MotionEvent event) {
-
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            //the first touch of the new stroke
-            long penId = PenRecognizer.getPenId(event);
-            if (!penIdsMap.containsKey(penId)) {
-                int color = Color.argb(155 + (int) (Math.random() * 100), (int) (Math.random() * 150), (int) (Math.random() * 150), (int) (Math.random() * 150));
-                penIdsMap.put(penId, color);
+        NBioBSPJNI.CURRENT_PRODUCT_ID = 0;
+        if (bsp == null) {
+            bsp = new NBioBSPJNI("010701-613E5C7F4CC7C4B0-72E340B47E034015", this, mCallback);
+            String msg = null;
+            if (bsp.IsErrorOccured())
+                msg = "NBioBSP Error: " + bsp.GetErrorCode();
+            else {
+                msg = "SDK Version: " + bsp.GetVersion();
+                exportEngine = bsp.new Export();
+                indexSearch = bsp.new IndexSearch();
             }
-            strokeRenderer.getStrokePaint().setColor(penIdsMap.get(penId));
-        }
-
-        strokeRenderer.drawPoints(pathBuilder.getPathBuffer(), pathBuilder.getPathLastUpdatePosition(), pathBuilder.getAddedPointsSize(), event.getAction() == MotionEvent.ACTION_UP);
-        strokeRenderer.drawPrelimPoints(pathBuilder.getPreliminaryPathBuffer(), 0, pathBuilder.getFinishedPreliminaryPathSize());
-
-        if (event.getAction() != MotionEvent.ACTION_UP) {
-            inkCanvas.setTarget(currentFrameLayer, strokeRenderer.getStrokeUpdatedArea());
-            inkCanvas.clearColor(Color.WHITE);
-            inkCanvas.drawLayer(strokesLayer, BlendMode.BLENDMODE_NORMAL);
-            strokeRenderer.blendStrokeUpdatedArea(currentFrameLayer, BlendMode.BLENDMODE_NORMAL);
-        } else {
-            strokeRenderer.blendStroke(strokesLayer, BlendMode.BLENDMODE_NORMAL);
-            inkCanvas.setTarget(currentFrameLayer);
-            inkCanvas.clearColor(Color.WHITE);
-            inkCanvas.drawLayer(strokesLayer, BlendMode.BLENDMODE_NORMAL);
+            //tvDeviceStatus.setText(msg);
+            fingerData = "";
+            //sampleDialogFragment = new SampleDialogFragment();
         }
     }
 
-    private void releaseResources() {
-        strokeRenderer.dispose();
-        inkCanvas.dispose();
-    }
+    NBioBSPJNI.CAPTURE_CALLBACK mCallback = new NBioBSPJNI.CAPTURE_CALLBACK() {
+        @Override
+        public int OnCaptured(NBioBSPJNI.CAPTURED_DATA capturedData) {
+
+            //tilUserId.getEditText().setText("IMAGE Quality: "+capturedData.getImageQuality());
+
+
+            if (capturedData.getImage() != null) {
+                imvFpPrint.setImageDrawable(null);
+                imvFpPrint.setImageBitmap(null);
+                imvFpPrint.setImageBitmap(capturedData.getImage());
+                tvFpQuality.setText(String.valueOf(capturedData.getImageQuality()));
+            }
+
+            // quality : 40~100
+            if (capturedData.getImageQuality() >= QUALITY_LIMIT) {
+//                if (sampleDialogFragment != null && "DIALOG_TYPE_PROGRESS".equals(sampleDialogFragment.getTag()))
+//                    sampleDialogFragment.dismiss();
+                return NBioBSPJNI.ERROR.NBioAPIERROR_USER_CANCEL;
+            } else if (capturedData.getDeviceError() != NBioBSPJNI.ERROR.NBioAPIERROR_NONE) {
+//                if (sampleDialogFragment != null && "DIALOG_TYPE_PROGRESS".equals(sampleDialogFragment.getTag()))
+//                    sampleDialogFragment.dismiss();
+                return capturedData.getDeviceError();
+            } else {
+                return NBioBSPJNI.ERROR.NBioAPIERROR_NONE;
+            }
+        }
+
+        @Override
+        public void OnConnected() {
+
+//            if (sampleDialogFragment != null)
+//                sampleDialogFragment.dismiss();
+
+            String message = "Connected";
+            fingerData = "";
+
+            ByteBuffer deviceId = ByteBuffer.allocate(StaticVals.wLength_GET_ID);
+            deviceId.order(ByteOrder.BIG_ENDIAN);
+            bsp.getDeviceID(deviceId.array());
+
+            if (bsp.IsErrorOccured()) {
+                msg = "NBioBSP GetDeviceID Error: " + bsp.GetErrorCode();
+                tvFpDeviceStatus.setText(msg);
+                return;
+            }
+
+            ByteBuffer setValue = ByteBuffer.allocate(StaticVals.wLength_SET_VALUE);
+            setValue.order(ByteOrder.BIG_ENDIAN);
+
+            byte[] src = new byte[StaticVals.wLength_SET_VALUE];
+            for (int i = 0; i < src.length; i++) {
+                src[i] = 1;
+            }
+            setValue.put(src);
+            bsp.setValue(setValue.array());
+
+            if (bsp.IsErrorOccured()) {
+                msg = "NBioBSP SetValue Error: " + bsp.GetErrorCode();
+                tvFpDeviceStatus.setText(msg);
+                return;
+            }
+
+            ByteBuffer getvalue = ByteBuffer.allocate(StaticVals.wLength_GET_VALUE);
+            getvalue.order(ByteOrder.BIG_ENDIAN);
+            bsp.getValue(getvalue.array());
+
+            if (bsp.IsErrorOccured()) {
+                msg = "NBioBSP GetValue Error: " + bsp.GetErrorCode();
+                tvFpDeviceStatus.setText(msg);
+                return;
+            }
+            src = new byte[StaticVals.wLength_SET_VALUE];
+            System.arraycopy(getvalue.array(), 0, src, 0, StaticVals.wLength_GET_VALUE);
+//	        message += " \n";
+//	        for(int i=0;i<src.length;i++){
+//	        	message += src[i];
+//	        }
+
+            NBioBSPJNI.INIT_INFO_0 init_info_0 = bsp.new INIT_INFO_0();
+            bsp.GetInitInfo(init_info_0);
+
+            NBioBSPJNI.CAPTURE_QUALITY_INFO mCAPTURE_QUALITY_INFO = bsp.new CAPTURE_QUALITY_INFO();
+            bsp.GetCaptureQualityInfo(mCAPTURE_QUALITY_INFO);
+
+            mCAPTURE_QUALITY_INFO.EnrollCoreQuality = 70;
+            mCAPTURE_QUALITY_INFO.EnrollFeatureQuality = 30;
+            mCAPTURE_QUALITY_INFO.VerifyCoreQuality = 70;
+            mCAPTURE_QUALITY_INFO.VerifyFeatureQuality = 30;
+            bsp.SetCaptureQualityInfo(mCAPTURE_QUALITY_INFO);
+
+
+//			message = message +":"+init_info_0.EnrollImageQuality;
+
+            tvFpDeviceStatus.setText(message);
+            //tvFpDeviceStatus.setTextColor(getResources().getColor(R.color.netConnectedColor));
+            btnFpCapture.setClickable(true);
+            btnFpCapture.setBackgroundTintList(MainActivity.this.getResources().getColorStateList(R.color.colorPrimary));
+
+        }
+
+        @Override
+        public void OnDisConnected() {
+
+            NBioBSPJNI.CURRENT_PRODUCT_ID = 0;
+
+//            if (sampleDialogFragment != null)
+//                sampleDialogFragment.dismiss();
+
+            //ShowToast.showTastyWarningToast(FingerPrintActivity.this, "Device disconnected");
+            Toast.makeText(MainActivity.this, "Device disconnected", Toast.LENGTH_SHORT).show();
+
+            String message = "NBioBSP Disconnected: " + bsp.GetErrorCode();
+            init();
+        }
+    };
+
 }
